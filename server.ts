@@ -29,16 +29,26 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 connectDB();
 
 // Security middleware
-app.use(helmet());
-app.use(cors({
-  origin: process.env.VITE_APP_URL || 'http://localhost:5173',
-  credentials: true
-}));
+app.use(
+    helmet({
+        contentSecurityPolicy: false, // Disable CSP in development
+    }),
+);
+
+app.use(
+    cors({
+        origin: process.env.VITE_APP_URL || 'http://localhost:5173',
+        credentials: true,
+    }),
+);
+
 app.use(express.json({ limit: '10kb' }));
 app.use(cookieParser());
-app.use(fileUpload({
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
-} as fileUpload.Options));
+app.use(
+    fileUpload({
+        limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    } as fileUpload.Options),
+);
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -48,17 +58,21 @@ app.use('/api/reviews', reviewRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok' });
+    res.json({ status: 'ok' });
 });
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, 'dist')));
-  
-  // Handle client-side routing
-  app.get('*', (_req, res) => {
-    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-  });
+    // Serve static files from the React app
+    const staticPath = path.join(__dirname, 'dist');
+    app.use(express.static(staticPath));
+
+    // Handle client-side routing - MUST be after API routes
+    app.get('*', (_req, res) => {
+        res.sendFile(path.join(staticPath, 'index.html'));
+    });
+
+    logger.info(`Serving static files from: ${staticPath}`);
 }
 
 // Error handling middleware - MUST be after all routes
@@ -66,20 +80,21 @@ app.use(errorHandler);
 
 // Unhandled rejection handler
 process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', {
-    promise,
-    reason
-  });
-  // Don't exit the process, just log it
+    logger.error('Unhandled Rejection at:', {
+        promise,
+        reason,
+    });
+    // Don't exit the process, just log it
 });
 
 // Uncaught exception handler
 process.on('uncaughtException', (error) => {
-  logger.error('Uncaught Exception:', error);
-  // Don't exit the process, just log it
+    logger.error('Uncaught Exception:', error);
+    // Don't exit the process, just log it
 });
 
 // Start server
 app.listen(port, () => {
-  logger.info(`Server is running on port ${port}`);
+    logger.info(`Server is running on port ${port}`);
+    logger.info(`Environment: ${process.env.NODE_ENV}`);
 });
