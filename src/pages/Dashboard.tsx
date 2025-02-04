@@ -69,7 +69,6 @@ const Dashboard = () => {
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState(0);
     const [emails, setEmails] = useState('');
-    const [file, setFile] = useState<File | null>(null);
     //const [file, setFile] = useState<File | null>(null);
     const [emailBatches, setEmailBatches] = useState<EmailBatch[]>([]);
     const [reviews, setReviews] = useState<Review[]>([]);
@@ -149,43 +148,43 @@ const Dashboard = () => {
         }
     };
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+    // const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    //     const file = e.target.files?.[0];
+    //     if (!file) return;
 
-        if (file.type !== 'text/csv') {
-            setNotification({
-                open: true,
-                message: 'Please upload a CSV file',
-                severity: 'error',
-            });
-            return;
-        }
+    //     if (file.type !== 'text/csv') {
+    //         setNotification({
+    //             open: true,
+    //             message: 'Please upload a CSV file',
+    //             severity: 'error',
+    //         });
+    //         return;
+    //     }
 
-        setFile(file);
-        const formData = new FormData();
-        formData.append('file', file);
+    //     setFile(file);
+    //     const formData = new FormData();
+    //     formData.append('file', file);
 
-        if (user?.role === 'admin' && selectedHotel) {
-            formData.append('hotelId', selectedHotel);
-        }
+    //     if (user?.role === 'admin' && selectedHotel) {
+    //         formData.append('hotelId', selectedHotel);
+    //     }
 
-        try {
-            await api.post('/api/reviews/upload-csv', formData);
-            setNotification({
-                open: true,
-                message: 'CSV uploaded and processed successfully!',
-                severity: 'success',
-            });
-            fetchData();
-        } catch (error) {
-            setNotification({
-                open: true,
-                message: 'Failed to upload CSV',
-                severity: 'error',
-            });
-        }
-    };
+    //     try {
+    //         await api.post('/api/reviews/upload-csv', formData);
+    //         setNotification({
+    //             open: true,
+    //             message: 'CSV uploaded and processed successfully!',
+    //             severity: 'success',
+    //         });
+    //         fetchData();
+    //     } catch (error) {
+    //         setNotification({
+    //             open: true,
+    //             message: 'Failed to upload CSV',
+    //             severity: 'error',
+    //         });
+    //     }
+    // };
 
     const formatDateTime = (date: string) => {
         return new Date(date).toLocaleString('en-US', {
