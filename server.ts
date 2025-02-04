@@ -20,7 +20,7 @@ import auth from './src/middleware/auth.js';
 config();
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 5174;
 
 // Get current directory - handle both ESM and CJS
 const __dirname = dirname(fileURLToPath(import.meta.url));
