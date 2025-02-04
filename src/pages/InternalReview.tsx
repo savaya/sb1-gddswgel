@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Box, Typography, TextField, Rating, Button, Snackbar, Alert, CircularProgress } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
 import { Star } from 'lucide-react';
+import { api } from '../lib/api';
+import type { AxiosError } from 'axios';
 
 interface ReviewData {
     guestName: string;
@@ -34,22 +36,12 @@ const InternalReview = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (isSubmitting) return;
+        if (isSubmitting || !reviewData.rating) return;
 
         setIsSubmitting(true);
 
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/reviews/internal`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(reviewData),
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to submit review');
-            }
+            await api.post('/api/reviews/internal', reviewData);
 
             setNotification({
                 open: true,
@@ -61,9 +53,14 @@ const InternalReview = () => {
                 window.close();
             }, 2000);
         } catch (error) {
+            const errorMessage =
+                error instanceof AxiosError
+                    ? error.response?.data?.error || 'Failed to submit review'
+                    : 'Failed to submit review. Please try again.';
+
             setNotification({
                 open: true,
-                message: 'Failed to submit review. Please try again.',
+                message: errorMessage,
                 severity: 'error',
             });
         } finally {
