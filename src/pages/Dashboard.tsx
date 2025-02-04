@@ -95,6 +95,10 @@ const Dashboard = () => {
         try {
             const { data } = await api.get('/api/hotels');
             setHotels(data);
+            // If we have hotels and no hotel is selected, select the first one
+            if (data.length > 0 && !selectedHotel) {
+                setSelectedHotel(data[0]._id);
+            }
         } catch (error) {
             console.error('Error fetching hotels:', error);
         }
@@ -203,21 +207,40 @@ const Dashboard = () => {
             </Typography>
 
             {user?.role === 'admin' && (
-                <Box sx={{ mb: 4 }}>
-                    <FormControl fullWidth>
-                        <InputLabel>Select Hotel</InputLabel>
-                        <Select value={selectedHotel} label="Select Hotel" onChange={(e) => setSelectedHotel(e.target.value)}>
-                            <MenuItem value="">
-                                <em>Select a hotel</em>
-                            </MenuItem>
-                            {hotels.map((hotel) => (
-                                <MenuItem key={hotel._id} value={hotel._id}>
-                                    {hotel.name}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                </Box>
+                <Card sx={{ mb: 4, borderColor: !selectedHotel ? 'error.main' : 'transparent' }}>
+                    <CardContent>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                            <Typography variant="h6" sx={{ color: !selectedHotel ? 'error.main' : 'inherit' }}>
+                                Select Hotel
+                            </Typography>
+                        </Box>
+                        <FormControl fullWidth error={!selectedHotel}>
+                            <InputLabel>Hotel</InputLabel>
+                            <Select
+                                value={selectedHotel}
+                                label="Hotel"
+                                onChange={(e) => setSelectedHotel(e.target.value)}
+                                sx={{
+                                    '& .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: !selectedHotel ? 'error.main' : undefined,
+                                        borderWidth: !selectedHotel ? 2 : 1,
+                                    },
+                                }}
+                            >
+                                {hotels.map((hotel) => (
+                                    <MenuItem key={hotel._id} value={hotel._id}>
+                                        {hotel.name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                            {!selectedHotel && (
+                                <Typography variant="caption" color="error" sx={{ mt: 1 }}>
+                                    Please select a hotel to continue
+                                </Typography>
+                            )}
+                        </FormControl>
+                    </CardContent>
+                </Card>
             )}
 
             <Box
@@ -272,7 +295,7 @@ const Dashboard = () => {
 
             {activeTab === 0 ? (
                 <Grid container spacing={4}>
-                    <Grid item xs={12} md={6}>
+                    <Grid item xs={12} md={12}>
                         <Card>
                             <CardContent>
                                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
