@@ -24,7 +24,6 @@ const port = process.env.PORT || 3000;
 
 // Get current directory - handle both ESM and CJS
 const __dirname = dirname(fileURLToPath(import.meta.url));
-// Remove 'dist' from path if we're in production
 const rootDir = process.env.NODE_ENV === 'production' ? path.join(__dirname, '..') : __dirname;
 
 // Connect to MongoDB
@@ -66,7 +65,7 @@ app.get('/api/health', (_req, res) => {
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
     // Serve static files from the React app
-    const staticPath = path.join(rootDir, 'dist');
+    const staticPath = path.join(rootDir, 'dist', 'client');
     logger.info(`Serving static files from: ${staticPath}`);
 
     app.use(express.static(staticPath));

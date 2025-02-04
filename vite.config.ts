@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
             'process.env': env,
         },
         build: {
-            outDir: 'dist',
+            outDir: 'dist/client',
             sourcemap: true,
             // Ensure assets are placed in a predictable location
             assetsDir: 'assets',

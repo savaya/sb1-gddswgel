@@ -306,7 +306,7 @@ const Dashboard = () => {
             </Card>
           </Grid>
 
-          <Grid item xs={12} md={6}>
+          {/* <Grid item xs={12} md={6}>
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -353,7 +353,7 @@ const Dashboard = () => {
                 </Alert>
               </CardContent>
             </Card>
-          </Grid>
+          </Grid> */}
 
           <Grid item xs={12}>
             <Card>
