@@ -10,6 +10,9 @@ RUN npm ci
 # Copy source files
 COPY . .
 
+# Clean any existing dist directory
+RUN npm run clean
+
 # Build both frontend and backend
 RUN npm run build:all
 
@@ -23,13 +26,17 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 # Copy built files from builder stage
-COPY --from=builder /app/dist ./dist
+# Frontend build
+COPY --from=builder /app/dist/client ./dist/client
+# Backend build
+COPY --from=builder /app/dist/server.js ./dist/
+COPY --from=builder /app/dist/src ./dist/src
 
 # Expose port
-EXPOSE 5174
+EXPOSE 3000
 
 # Set production environment
 ENV NODE_ENV=production
 
 # Start command
-CMD ["npm", "start"]
+CMD ["npm", "run", "start:prod"]
