@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Box, Typography, TextField, Rating, Button, Snackbar, Alert, CircularProgress } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
 import { Star } from 'lucide-react';
-import { api } from '../lib/api'; // Import the api instance
 
 interface ReviewData {
     guestName: string;
@@ -40,8 +39,17 @@ const InternalReview = () => {
         setIsSubmitting(true);
 
         try {
-            // Use the api instance instead of direct fetch
-            const { data } = await api.post('/api/reviews/internal', reviewData);
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/reviews/internal`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(reviewData),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to submit review');
+            }
 
             setNotification({
                 open: true,
