@@ -7,180 +7,241 @@ import type { ReviewDocument } from '../types/mongodb.js';
 
 // Create reusable transporter object using SMTP
 const createTransporter = () => {
-  const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT || '587');
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+    const host = process.env.SMTP_HOST;
+    const port = parseInt(process.env.SMTP_PORT || '587');
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
 
-  if (!host || !user || !pass) {
-    throw new ApiError(500, 'Missing SMTP configuration');
-  }
+    if (!host || !user || !pass) {
+        throw new ApiError(500, 'Missing SMTP configuration');
+    }
 
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-  });
+    return nodemailer.createTransport({
+        host,
+        port,
+        secure: port === 465,
+        auth: { user, pass },
+    });
 };
 
 export const sendReviewRequest = async (
-  email: string,
-  hotelName: string,
-  hotelId: string,
-  googleReviewLink: string
+    email: string,
+    hotelName: string,
+    hotelId: string,
+    googleReviewLink: string,
+    token: string,
 ): Promise<void> => {
-  try {
-    const transporter = createTransporter();
-    const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+    try {
+        const transporter = createTransporter();
+        const from = process.env.SMTP_FROM || process.env.SMTP_USER;
 
-    if (!from) {
-      throw new ApiError(500, 'Missing SMTP_FROM configuration');
-    }
+        if (!from) {
+            throw new ApiError(500, 'Missing SMTP_FROM configuration');
+        }
 
-    const positiveLink = googleReviewLink || `${process.env.VITE_APP_URL}/review/external/${hotelId}`;
-    const negativeLink = `${process.env.VITE_APP_URL}/review?hotel=${hotelId}`;
+        const positiveLink = googleReviewLink || `${process.env.VITE_APP_URL}/review/external/${hotelId}`;
+        const negativeLink = `${process.env.VITE_APP_URL}/review?hotel=${hotelId}&token=${token}`;
 
-    const mailOptions = {
-      from,
-      to: email,
-      subject: `How was your stay at ${hotelName}?`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Hotel Review Request</title>
-        </head>
-        <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;">
-          <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #1a73e8; font-size: 24px; margin: 0;">How was your stay?</h1>
-              <p style="color: #202124; font-size: 18px; margin-top: 10px;">
-                Thank you for choosing ${hotelName}
-              </p>
+        const mailOptions = {
+            from,
+            to: email,
+            subject: `How was your stay at ${hotelName}?`,
+            html: `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotel Review Request</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f8fafc; -webkit-font-smoothing: antialiased;">
+    <div style="max-width: 600px; margin: 40px auto; padding: 0 20px;">
+        <!-- Email Container -->
+        <div style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);">
+            <!-- Gradient Header with Enhanced Design -->
+            <div style="background: linear-gradient(135deg, #4f46e5 0%, #818cf8 50%, #3b82f6 100%); padding: 45px 40px; text-align: center;">
+                <h1 style="color: #ffffff; font-size: 32px; margin: 0 0 15px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.1); letter-spacing: -0.5px;">
+                    How was your stay?
+                </h1>
+                <div style="width: 100px; height: 4px; background: rgba(255,255,255,0.3); margin: 0 auto; border-radius: 2px;"></div>
             </div>
-            
-            <div style="text-align: center; margin: 40px 0;">
-              <p style="color: #5f6368; font-size: 16px; margin-bottom: 20px;">
-                We'd love to hear about your experience
-              </p>
-              
-              <div style="margin: 30px 0;">
-                <a href="${positiveLink}" style="display: inline-block; background-color: #1a73e8; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 0 10px; font-weight: 500;">
-                  😊 Great Experience
-                </a>
-                
-                <a href="${negativeLink}" style="display: inline-block; background-color: #ea4335; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 0 10px; font-weight: 500;">
-                  😔 Could Be Better
-                </a>
-              </div>
+
+            <!-- Main Content -->
+            <div style="padding: 40px 40px 30px;">
+                <p style="color: #1e293b; font-size: 18px; line-height: 1.6; margin: 0 0 30px; text-align: center; font-weight: 500;">
+                    Thank you for choosing <span style="color: #4f46e5; font-weight: 700;">${hotelName}</span>
+                </p>
+
+                <p style="color: #64748b; font-size: 16px; text-align: center; margin: 0 0 35px;">
+                    We'd love to hear about your experience with us
+                </p>
+
+                <!-- Enhanced Rating Buttons -->
+                <div style="text-align: center; margin: 0 0 40px;">
+                    <div style="margin-bottom: 20px;">
+                        <a href="${positiveLink}" style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%); color: #ffffff; padding: 16px 38px; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; transition: all 0.3s ease; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2), 0 2px 4px -1px rgba(79, 70, 229, 0.1);">
+                            😊 Great Experience
+                        </a>
+                    </div>
+                    <div>
+                        <a href="${negativeLink}" style="display: inline-block; background: #ffffff; color: #dc2626; padding: 15px 38px; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; border: 2px solid #dc2626; transition: all 0.3s ease;">
+                            😔 Could Be Better
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Decorative Element -->
+                <div style="text-align: center; margin: 0 0 30px;">
+                    <div style="display: inline-block;">
+                        <div style="width: 50px; height: 3px; background: linear-gradient(to right, #4f46e5, transparent); display: inline-block;"></div>
+                        <div style="width: 3px; height: 3px; background: #4f46e5; display: inline-block; border-radius: 50%; margin: 0 10px;"></div>
+                        <div style="width: 50px; height: 3px; background: linear-gradient(to left, #4f46e5, transparent); display: inline-block;"></div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <p style="color: #94a3b8; font-size: 13px; line-height: 1.5; margin: 0; text-align: center;">
+                    This email was sent from ${hotelName}'s guest feedback system.<br>
+                    If you didn't stay with us recently, please disregard this message.
+                </p>
             </div>
-            
-            <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e8eaed;">
-              <p style="color: #5f6368; font-size: 12px;">
-                This email was sent by ${hotelName}'s review management system.<br>
-                If you did not stay at our hotel, please ignore this email.
-              </p>
-            </div>
-          </div>
-        </body>
-        </html>
+        </div>
+    </div>
+</body>
+</html>
       `,
-    };
+        };
 
-    await transporter.verify();
-    await transporter.sendMail(mailOptions);
-    logger.info('Review request email sent successfully', { email });
-    
-  } catch (error) {
-    logger.error('Failed to send email:', error);
-    throw new ApiError(500, `Failed to send email: ${(error as Error).message}`);
-  }
+        await transporter.verify();
+        await transporter.sendMail(mailOptions);
+        logger.info('Review request email sent successfully', { email });
+    } catch (error) {
+        logger.error('Failed to send email:', error);
+        throw new ApiError(500, `Failed to send email: ${(error as Error).message}`);
+    }
 };
 
 export const sendInternalReviewNotification = async (hotelId: string, review: ReviewDocument): Promise<void> => {
-  try {
-    const hotel = await Hotel.findById(hotelId);
-    const hotelUser = await User.findOne({ hotel: hotelId });
+    try {
+        const hotel = await Hotel.findById(hotelId);
+        const hotelUser = await User.findOne({ hotel: hotelId });
 
-    if (!hotel || !hotelUser) {
-      throw new ApiError(404, 'Hotel or hotel user not found');
-    }
+        if (!hotel || !hotelUser) {
+            throw new ApiError(404, 'Hotel or hotel user not found');
+        }
 
-    const transporter = createTransporter();
-    const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+        const transporter = createTransporter();
+        const from = process.env.SMTP_FROM || process.env.SMTP_USER;
 
-    if (!from) {
-      throw new ApiError(500, 'Missing SMTP_FROM configuration');
-    }
+        if (!from) {
+            throw new ApiError(500, 'Missing SMTP_FROM configuration');
+        }
 
-    const mailOptions = {
-      from,
-      to: hotelUser.email,
-      subject: `New Review for ${hotel.name}`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>New Review Notification</title>
-        </head>
-        <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f5f5f5;">
-          <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #1a73e8; font-size: 24px; margin: 0;">New Review Received</h1>
-              <p style="color: #202124; font-size: 18px; margin-top: 10px;">
-                A guest has shared their feedback about ${hotel.name}
-              </p>
-            </div>
-            
-            <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0;">
-              <div style="margin-bottom: 15px;">
-                <strong style="color: #202124;">Guest Name:</strong>
-                <span style="color: #5f6368;">${review.guestName}</span>
-              </div>
-              
-              <div style="margin-bottom: 15px;">
-                <strong style="color: #202124;">Rating:</strong>
-                <span style="color: ${review.rating >= 4 ? '#34a853' : '#ea4335'};">
-                  ${'★'.repeat(review.rating)}${'☆'.repeat(5-review.rating)}
-                </span>
-              </div>
-              
-              <div style="margin-bottom: 15px;">
-                <strong style="color: #202124;">Stay Date:</strong>
-                <span style="color: #5f6368;">${review.stayDate.toLocaleDateString()}</span>
-              </div>
-              
-              <div>
-                <strong style="color: #202124;">Review:</strong>
-                <p style="color: #5f6368; margin: 10px 0; line-height: 1.5;">
-                  ${review.reviewText}
+        const mailOptions = {
+            from,
+            to: hotelUser.email,
+            subject: `New Review for ${hotel.name}`,
+            html: `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Review Notification</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f8fafc; -webkit-font-smoothing: antialiased;">
+    <div style="max-width: 600px; margin: 40px auto; padding: 0 20px;">
+        <!-- Email Container -->
+        <div style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);">
+            <!-- Enhanced Gradient Header -->
+            <div style="background: linear-gradient(135deg, #4f46e5 0%, #818cf8 50%, #3b82f6 100%); padding: 45px 40px; text-align: center;">
+                <h1 style="color: #ffffff; font-size: 32px; margin: 0 0 10px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.1); letter-spacing: -0.5px;">
+                    New Review Received
+                </h1>
+                <p style="color: rgba(255,255,255,0.9); font-size: 18px; margin: 0; font-weight: 500;">
+                    Guest Feedback for ${hotel.name}
                 </p>
-              </div>
+                <div style="width: 100px; height: 4px; background: rgba(255,255,255,0.3); margin: 15px auto 0; border-radius: 2px;"></div>
             </div>
-            
-            <div style="text-align: center; margin-top: 30px;">
-              <a href="${process.env.VITE_APP_URL}/dashboard" 
-                 style="display: inline-block; background-color: #1a73e8; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: 500;">
-                View in Dashboard
-              </a>
+
+            <!-- Review Content -->
+            <div style="padding: 40px;">
+                <!-- Guest Info Card -->
+                <div style="background: linear-gradient(to bottom right, #f8fafc, #f1f5f9); border-radius: 16px; padding: 30px; margin-bottom: 30px; border: 1px solid rgba(148, 163, 184, 0.1); box-shadow: 0 2px 4px rgba(148, 163, 184, 0.05);">
+                    <div style="margin-bottom: 25px;">
+                        <!-- Guest Name and Icon -->
+                        <div style="display: flex; align-items: center; margin-bottom: 20px;">
+                            <div style="background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);">
+                                <span style="color: #ffffff; font-size: 24px;">👤</span>
+                            </div>
+                            <div>
+                                <h2 style="color: #1e293b; font-size: 20px; margin: 0 0 5px; font-weight: 700;">${review.guestName}</h2>
+                                ${
+                                    review.email
+                                        ? `<p style="color: #64748b; font-size: 14px; margin: 0; font-weight: 500;">${review.email}</p>`
+                                        : ''
+                                }
+                            </div>
+                        </div>
+                        
+                        <!-- Stay Details -->
+                        <div style="background: #ffffff; border-radius: 12px; padding: 15px; border: 1px solid rgba(148, 163, 184, 0.1);">
+                            <p style="color: #64748b; font-size: 14px; margin: 0; font-weight: 500;">
+                                <span style="color: #1e293b; font-weight: 600;">Stay Date:</span> ${new Date(
+                                    review.stayDate,
+                                ).toLocaleDateString('en-US', {
+                                    weekday: 'long',
+                                    month: 'long',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                })}
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Enhanced Rating Display -->
+                    <div style="margin-bottom: 25px;">
+                        <div style="margin-bottom: 12px;">
+                            <span style="color: #1e293b; font-weight: 600; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px;">Rating</span>
+                        </div>
+                        <div style="color: ${review.rating >= 4 ? '#eab308' : '#94a3b8'}; font-size: 28px; letter-spacing: 3px;">
+                            ${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}
+                        </div>
+                    </div>
+
+                    <!-- Enhanced Review Text Display -->
+                    <div>
+                        <div style="margin-bottom: 12px;">
+                            <span style="color: #1e293b; font-weight: 600; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px;">Guest Feedback</span>
+                        </div>
+                        <div style="background-color: #ffffff; border-radius: 12px; padding: 20px; border-left: 4px solid #4f46e5; box-shadow: 0 2px 4px rgba(148, 163, 184, 0.05);">
+                            <p style="color: #334155; font-size: 16px; line-height: 1.7; margin: 0; font-style: italic;">
+                                "${review.reviewText}"
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Enhanced Action Button -->
+                <div style="text-align: center;">
+                    <a href="${process.env.VITE_APP_URL}/dashboard" 
+                       style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%); color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2); transition: all 0.3s ease;">
+                        View Full Review in Dashboard
+                    </a>
+                </div>
             </div>
-          </div>
-        </body>
-        </html>
+        </div>
+    </div>
+</body>
+</html>
       `,
-    };
+        };
 
-    await transporter.verify();
-    await transporter.sendMail(mailOptions);
-    logger.info('Review notification email sent successfully', { hotelId });
-
-  } catch (error) {
-    logger.error('Failed to send review notification:', error);
-    throw new ApiError(500, 'Failed to send review notification');
-  }
+        await transporter.verify();
+        await transporter.sendMail(mailOptions);
+        logger.info('Review notification email sent successfully', { hotelId });
+    } catch (error) {
+        logger.error('Failed to send review notification:', error);
+        throw new ApiError(500, 'Failed to send review notification');
+    }
 };
