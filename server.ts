@@ -33,35 +33,38 @@ connectDB();
 app.use(
     helmet({
         contentSecurityPolicy: false, // Disable CSP in development
+        crossOriginResourcePolicy: { policy: 'cross-origin' },
+        crossOriginOpenerPolicy: { policy: 'same-origin' },
     }),
 );
 
 // CORS configuration
-const allowedOrigins = [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'https://admin.hotelreviewsystem.com',
-    process.env.VITE_APP_URL,
-].filter(Boolean);
+const corsOptions = {
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+        const allowedOrigins = ['http://localhost:5173', 'http://localhost:5174', 'https://admin.hotelreviewsystem.com'];
 
-app.use(
-    cors({
-        origin: function (origin, callback) {
-            // Allow requests with no origin (like mobile apps or curl requests)
-            if (!origin) return callback(null, true);
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) {
+            return callback(null, true);
+        }
 
-            if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
-                callback(null, true);
-            } else {
-                callback(new Error('Not allowed by CORS'));
-            }
-        },
-        credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
-    }),
-);
+        if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+            callback(null, true);
+        } else {
+            logger.warn(`Blocked request from unauthorized origin: ${origin}`);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 600, // Increase preflight cache to 10 minutes
+};
 
+app.use(cors(corsOptions));
+
+// Body parsing middleware
 app.use(express.json({ limit: '10kb' }));
 app.use(cookieParser());
 app.use(
@@ -69,6 +72,14 @@ app.use(
         limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
     } as fileUpload.Options),
 );
+
+// Set security headers for all responses
+app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    next();
+});
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -87,7 +98,12 @@ if (process.env.NODE_ENV === 'production') {
     const staticPath = path.join(rootDir, 'dist', 'client');
     logger.info(`Serving static files from: ${staticPath}`);
 
-    app.use(express.static(staticPath));
+    app.use(
+        express.static(staticPath, {
+            maxAge: '1y',
+            etag: true,
+        }),
+    );
 
     // Handle client-side routing - MUST be after API routes
     app.get('*', (_req, res) => {
@@ -117,4 +133,5 @@ process.on('uncaughtException', (error) => {
 app.listen(port, () => {
     logger.info(`Server is running on port ${port}`);
     logger.info(`Environment: ${process.env.NODE_ENV}`);
+    logger.info(`CORS allowed origins in production: https://admin.hotelreviewsystem.com`);
 });
