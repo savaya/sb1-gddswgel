@@ -33,7 +33,7 @@ COPY --from=builder /app/dist/server.js ./dist/
 COPY --from=builder /app/dist/src ./dist/src
 
 # Expose port
-EXPOSE 3000
+EXPOSE 5174
 
 # Set production environment
 ENV NODE_ENV=production
