@@ -1,6 +1,7 @@
 {
     "build": {
         "type": "dockerfile",
-        "dockerfilePath": "./Dockerfile"
+        "dockerfilePath": "./Dockerfile",
+        "context": "./"
     }
 }
