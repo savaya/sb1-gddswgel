@@ -3,7 +3,7 @@ import { Box, Typography, TextField, Rating, Button, Snackbar, Alert, CircularPr
 import { useSearchParams } from 'react-router-dom';
 import { Star } from 'lucide-react';
 import { api } from '../lib/api';
-import type { AxiosError } from 'axios';
+import { AxiosError } from 'axios';
 
 interface ReviewData {
     guestName: string;
