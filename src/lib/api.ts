@@ -1,5 +1,6 @@
+// api.ts
 import axios from 'axios';
-import { config } from './config';
+import { config } from './config.js'; // Added .js extension
 
 export const api = axios.create({
     baseURL: process.env.NODE_ENV === 'production' ? window.location.origin : config.apiUrl,
