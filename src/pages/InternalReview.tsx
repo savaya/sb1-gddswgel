@@ -53,7 +53,7 @@ const RatingStars: React.FC<RatingStarsProps> = ({ rating, onRatingChange, hover
 const ReviewForm: React.FC = () => {
     const [searchParams] = useSearchParams();
     const hotelId = searchParams.get('hotel');
-    const emailToken = searchParams.get('token');
+    const token = searchParams.get('token');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [hoveredRating, setHoveredRating] = useState<number | null>(null);
     const [showAlert, setShowAlert] = useState(false);
@@ -70,24 +70,25 @@ const ReviewForm: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!reviewData.rating || !emailToken) return;
+        if (!reviewData.rating || !token || !hotelId) return;
 
         setIsSubmitting(true);
 
         try {
             await api.post('/api/reviews/internal', {
                 ...reviewData,
-                token: emailToken,
+                token,
+                hotelId,
             });
 
             setAlertType('success');
             setAlertMessage('Thank you for your feedback!');
             setShowAlert(true);
 
-            setTimeout(() => {
-                window.close();
-            }, 2000);
+            // Redirect to thank you page after successful submission
+            window.location.href = '/thank-you';
         } catch (error) {
+            console.error('Review submission error:', error);
             setAlertType('error');
             setAlertMessage(
                 error instanceof AxiosError
@@ -95,7 +96,6 @@ const ReviewForm: React.FC = () => {
                     : 'Failed to submit review. Please try again.',
             );
             setShowAlert(true);
-        } finally {
             setIsSubmitting(false);
         }
     };

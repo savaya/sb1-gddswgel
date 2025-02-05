@@ -332,7 +332,7 @@ const Dashboard = () => {
                             <CardContent>
                                 <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                     <Mail size={24} />
-                                    Email History
+                                    Checkout Submissions
                                 </Typography>
 
                                 {isLoadingBatches ? (
@@ -341,7 +341,7 @@ const Dashboard = () => {
                                     </Box>
                                 ) : emailBatches.length === 0 ? (
                                     <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                                        No email history available
+                                        No submissions available
                                     </Typography>
                                 ) : (
                                     <TableContainer component={Paper} sx={{ mt: 2 }}>
