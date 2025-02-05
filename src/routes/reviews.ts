@@ -4,10 +4,9 @@ import Hotel from '../models/Hotel.js';
 import EmailBatch from '../models/EmailBatch.js';
 import Review from '../models/Review.js';
 import { ApiError } from '../lib/error.js';
-import { sendReviewRequest, sendInternalReviewNotification } from '../lib/email.js';
+import { sendReviewRequest } from '../lib/email.js';
 import { validateEmails } from '../lib/validators.js';
 import logger from '../lib/logger.js';
-import { Types } from 'mongoose';
 import jwt from 'jsonwebtoken';
 import type { UserDocument } from '../types/mongodb.js';
 
@@ -23,16 +22,21 @@ router.post('/internal', async (req, res) => {
     }
 
     try {
-        // Verify the token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as { hotelId: string };
+        // Verify the token with additional checks
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as {
+            hotelId: string;
+            email: string;
+            type: string;
+        };
 
-        // Validate that the hotelId matches
-        if (decoded.hotelId !== hotelId) {
-            logger.error('Token hotelId mismatch', {
+        // Validate token type and hotel ID
+        if (decoded.type !== 'review' || decoded.hotelId !== hotelId) {
+            logger.error('Invalid token type or hotel mismatch', {
+                tokenType: decoded.type,
                 tokenHotelId: decoded.hotelId,
                 requestHotelId: hotelId,
             });
-            throw new ApiError(401, 'Invalid token - hotel mismatch');
+            throw new ApiError(401, 'Invalid or expired review link');
         }
 
         // Quick validation
@@ -46,8 +50,8 @@ router.post('/internal', async (req, res) => {
         }
 
         // Create review document
-        const reviewData = {
-            hotelId: new Types.ObjectId(hotelId),
+        const review = await Review.create({
+            hotelId,
             guestName: guestName.trim(),
             stayDate: new Date(stayDate),
             rating,
@@ -55,15 +59,6 @@ router.post('/internal', async (req, res) => {
             isInternal: true,
             emailSent: true,
             createdAt: new Date(),
-        };
-
-        const review = await Review.create(reviewData);
-
-        // Send notification email in background
-        process.nextTick(() => {
-            sendInternalReviewNotification(hotelId, reviewData).catch((error) =>
-                logger.error('Failed to send review notification:', error),
-            );
         });
 
         res.status(201).json(review);
@@ -152,7 +147,19 @@ router.post('/send-requests', auth, async (req, res) => {
     // Process emails
     for (const emailEntry of emailBatch.emails) {
         try {
-            await sendReviewRequest(emailEntry.email, hotel.name, hotel._id.toString(), hotel.googleReviewLink || '');
+            // Generate a JWT token for each email
+            const token = jwt.sign(
+                {
+                    hotelId: targetHotelId,
+                    email: emailEntry.email,
+                    type: 'review',
+                },
+                process.env.JWT_SECRET || 'your-secret-key',
+                { expiresIn: '7d' }, // Token expires in 7 days
+            );
+
+            await sendReviewRequest(emailEntry.email, hotel.name, hotel._id.toString(), hotel.googleReviewLink || '', token);
+
             emailEntry.status = 'sent';
             emailEntry.sentAt = new Date();
         } catch (error) {
