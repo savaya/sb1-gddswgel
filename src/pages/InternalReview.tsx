@@ -75,7 +75,15 @@ const ReviewForm: React.FC = () => {
     if (!hotelId || !token) {
         return (
             <Container maxWidth="sm" sx={{ py: 8 }}>
-                <Paper sx={{ p: 4, textAlign: 'center' }}>
+                <Paper
+                    elevation={3}
+                    sx={{
+                        p: 4,
+                        textAlign: 'center',
+                        borderRadius: 2,
+                        backgroundColor: '#fff',
+                    }}
+                >
                     <Typography variant="h6" color="error" gutterBottom>
                         Invalid Review Link
                     </Typography>
@@ -95,7 +103,6 @@ const ReviewForm: React.FC = () => {
         setSubmitProgress(20);
 
         try {
-            // Simulate progress while submitting
             const progressInterval = setInterval(() => {
                 setSubmitProgress((prev) => Math.min(prev + 10, 90));
             }, 500);
@@ -111,7 +118,6 @@ const ReviewForm: React.FC = () => {
             setAlertMessage('Thank you for your feedback!');
             setShowAlert(true);
 
-            // Navigate to thank you page after successful submission
             setTimeout(() => {
                 navigate('/thank-you');
             }, 1500);
@@ -133,7 +139,6 @@ const ReviewForm: React.FC = () => {
     };
 
     const currentDate = new Date().toISOString().split('T')[0];
-
     const inputBaseClasses =
         'w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 text-black placeholder:text-gray-400';
 

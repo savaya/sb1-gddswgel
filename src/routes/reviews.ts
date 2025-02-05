@@ -18,7 +18,8 @@ router.post('/internal', async (req, res) => {
     const { hotelId, guestName, stayDate, rating, reviewText, token } = req.body;
 
     if (!token || !hotelId) {
-        throw new ApiError(401, 'Invalid request');
+        logger.error('Missing token or hotelId in review submission');
+        throw new ApiError(401, 'Invalid request - missing required parameters');
     }
 
     try {
@@ -27,7 +28,11 @@ router.post('/internal', async (req, res) => {
 
         // Validate that the hotelId matches
         if (decoded.hotelId !== hotelId) {
-            throw new ApiError(401, 'Invalid token');
+            logger.error('Token hotelId mismatch', {
+                tokenHotelId: decoded.hotelId,
+                requestHotelId: hotelId,
+            });
+            throw new ApiError(401, 'Invalid token - hotel mismatch');
         }
 
         // Quick validation
@@ -66,12 +71,12 @@ router.post('/internal', async (req, res) => {
         logger.error('Review submission error:', error);
 
         if (error instanceof jwt.JsonWebTokenError) {
-            throw new ApiError(401, 'Invalid or expired token');
+            throw new ApiError(401, 'Invalid or expired review link. Please request a new one.');
         }
         if (error instanceof ApiError) {
             throw error;
         }
-        throw new ApiError(500, 'Error creating review');
+        throw new ApiError(500, 'Error submitting review. Please try again.');
     }
 });
 
