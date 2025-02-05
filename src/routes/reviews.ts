@@ -8,7 +8,7 @@ import { sendReviewRequest, sendInternalReviewNotification } from '../lib/email.
 import { validateEmails } from '../lib/validators.js';
 import logger from '../lib/logger.js';
 import { Types } from 'mongoose';
-
+import jwt from 'jsonwebtoken';
 import type { UserDocument } from '../types/mongodb.js';
 
 const router = express.Router();
@@ -21,14 +21,27 @@ router.post('/internal', async (req, res) => {
         throw new ApiError(401, 'Invalid request');
     }
 
-    // Quick validation
-    if (!guestName?.trim() || !stayDate || !rating || !reviewText?.trim()) {
-        throw new ApiError(400, 'Missing required fields');
-    }
-
     try {
+        // Verify the token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as { hotelId: string };
+
+        // Validate that the hotelId matches
+        if (decoded.hotelId !== hotelId) {
+            throw new ApiError(401, 'Invalid token');
+        }
+
+        // Quick validation
+        if (!guestName?.trim() || !stayDate || !rating || !reviewText?.trim()) {
+            throw new ApiError(400, 'Missing required fields');
+        }
+
+        const hotel = await Hotel.findById(hotelId);
+        if (!hotel) {
+            throw new ApiError(404, 'Hotel not found');
+        }
+
         // Create review document
-        const review = await Review.create({
+        const reviewData = {
             hotelId: new Types.ObjectId(hotelId),
             guestName: guestName.trim(),
             stayDate: new Date(stayDate),
@@ -36,17 +49,25 @@ router.post('/internal', async (req, res) => {
             reviewText: reviewText.trim(),
             isInternal: true,
             emailSent: true,
-        });
+            createdAt: new Date(),
+        };
 
-        res.status(201).json(review);
+        const review = await Review.create(reviewData);
 
         // Send notification email in background
         process.nextTick(() => {
-            sendInternalReviewNotification(hotelId, review).catch((error: Error) =>
+            sendInternalReviewNotification(hotelId, reviewData).catch((error) =>
                 logger.error('Failed to send review notification:', error),
             );
         });
+
+        res.status(201).json(review);
     } catch (error) {
+        logger.error('Review submission error:', error);
+
+        if (error instanceof jwt.JsonWebTokenError) {
+            throw new ApiError(401, 'Invalid or expired token');
+        }
         if (error instanceof ApiError) {
             throw error;
         }
@@ -115,7 +136,7 @@ router.post('/send-requests', auth, async (req, res) => {
     // Create email batch
     const emailBatch = new EmailBatch({
         hotelId: targetHotelId,
-        emails: validEmails.map((email: string) => ({
+        emails: validEmails.map((email) => ({
             email,
             status: 'pending' as const,
         })),
@@ -173,14 +194,14 @@ router.get('/email-batches', auth, async (req, res) => {
         createdAt: batch.createdAt,
         completedAt: batch.completedAt,
         emailCount: batch.emails.length,
-        sentCount: batch.emails.filter((entry) => entry.status === 'sent').length,
-        failedCount: batch.emails.filter((entry) => entry.status === 'failed').length,
+        sentCount: batch.emails.filter((e) => e.status === 'sent').length,
+        failedCount: batch.emails.filter((e) => e.status === 'failed').length,
         status: batch.status,
-        emails: batch.emails.map((entry) => ({
-            email: entry.email,
-            status: entry.status,
-            sentAt: entry.sentAt,
-            error: entry.error,
+        emails: batch.emails.map((e) => ({
+            email: e.email,
+            status: e.status,
+            sentAt: e.sentAt,
+            error: e.error,
         })),
     }));
 

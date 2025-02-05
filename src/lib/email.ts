@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import jwt from 'jsonwebtoken';
 import { ApiError } from './error.js';
 import logger from './logger.js';
 
@@ -30,8 +31,10 @@ export const sendReviewRequest = async (email: string, hotelName: string, hotelI
             throw new ApiError(500, 'Missing SMTP_FROM configuration');
         }
 
-        const positiveLink = googleReviewLink || `${process.env.VITE_APP_URL}/review/external/${hotelId}`;
-        const negativeLink = `${process.env.VITE_APP_URL}/review?hotel=${hotelId}`;
+        // Generate a JWT token for the review link
+        const token = jwt.sign({ hotelId }, process.env.JWT_SECRET || 'your-secret-key', { expiresIn: '7d' });
+
+        const reviewLink = `${process.env.VITE_APP_URL}/review?hotel=${hotelId}&token=${token}`;
 
         const mailOptions = {
             from,
@@ -45,57 +48,23 @@ export const sendReviewRequest = async (email: string, hotelName: string, hotelI
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hotel Review Request</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f8fafc; -webkit-font-smoothing: antialiased;">
-    <div style="max-width: 600px; margin: 40px auto; padding: 0 20px;">
-        <!-- Email Container -->
-        <div style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);">
-            <!-- Gradient Header with Enhanced Design -->
-            <div style="background: linear-gradient(135deg, #4f46e5 0%, #818cf8 50%, #3b82f6 100%); padding: 45px 40px; text-align: center;">
-                <h1 style="color: #ffffff; font-size: 32px; margin: 0 0 15px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.1); letter-spacing: -0.5px;">
-                    How was your stay?
-                </h1>
-                <div style="width: 100px; height: 4px; background: rgba(255,255,255,0.3); margin: 0 auto; border-radius: 2px;"></div>
+<body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f8fafc;">
+    <div style="max-width: 600px; margin: 40px auto; padding: 20px;">
+        <div style="background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h1 style="color: #1a73e8; margin: 0 0 20px;">Share Your Experience</h1>
+            
+            <p style="margin-bottom: 20px;">Thank you for choosing ${hotelName}. We'd love to hear about your stay!</p>
+
+            <div style="margin-top: 30px; text-align: center;">
+                <a href="${googleReviewLink || reviewLink}" 
+                   style="display: inline-block; background: #1a73e8; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: 500;">
+                    Write a Review
+                </a>
             </div>
 
-            <!-- Main Content -->
-            <div style="padding: 40px 40px 30px;">
-                <p style="color: #1e293b; font-size: 18px; line-height: 1.6; margin: 0 0 30px; text-align: center; font-weight: 500;">
-                    Thank you for choosing <span style="color: #4f46e5; font-weight: 700;">${hotelName}</span>
-                </p>
-
-                <p style="color: #64748b; font-size: 16px; text-align: center; margin: 0 0 35px;">
-                    We'd love to hear about your experience with us
-                </p>
-
-                <!-- Enhanced Rating Buttons -->
-                <div style="text-align: center; margin: 0 0 40px;">
-                    <div style="margin-bottom: 20px;">
-                        <a href="${positiveLink}" style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%); color: #ffffff; padding: 16px 38px; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; transition: all 0.3s ease; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2), 0 2px 4px -1px rgba(79, 70, 229, 0.1);">
-                            😊 Great Experience
-                        </a>
-                    </div>
-                    <div>
-                        <a href="${negativeLink}" style="display: inline-block; background: #ffffff; color: #dc2626; padding: 15px 38px; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; border: 2px solid #dc2626; transition: all 0.3s ease;">
-                            😔 Could Be Better
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Decorative Element -->
-                <div style="text-align: center; margin: 0 0 30px;">
-                    <div style="display: inline-block;">
-                        <div style="width: 50px; height: 3px; background: linear-gradient(to right, #4f46e5, transparent); display: inline-block;"></div>
-                        <div style="width: 3px; height: 3px; background: #4f46e5; display: inline-block; border-radius: 50%; margin: 0 10px;"></div>
-                        <div style="width: 50px; height: 3px; background: linear-gradient(to left, #4f46e5, transparent); display: inline-block;"></div>
-                    </div>
-                </div>
-
-                <!-- Footer -->
-                <p style="color: #94a3b8; font-size: 13px; line-height: 1.5; margin: 0; text-align: center;">
-                    This email was sent from ${hotelName}'s guest feedback system.<br>
-                    If you didn't stay with us recently, please disregard this message.
-                </p>
-            </div>
+            <p style="margin-top: 30px; font-size: 12px; color: #666;">
+                If you didn't stay at ${hotelName}, please ignore this email.
+            </p>
         </div>
     </div>
 </body>
@@ -114,7 +83,7 @@ export const sendReviewRequest = async (email: string, hotelName: string, hotelI
 
 export const sendInternalReviewNotification = async (
     hotelId: string,
-    review: { guestName: string; stayDate: Date; rating: number; reviewText: string; email?: string },
+    review: { guestName: string; stayDate: Date; rating: number; reviewText: string },
 ) => {
     try {
         const transporter = createTransporter();
@@ -126,7 +95,7 @@ export const sendInternalReviewNotification = async (
 
         const mailOptions = {
             from,
-            to: from, // Send to admin email
+            to: from,
             subject: `New Review Received`,
             html: `
 <!DOCTYPE html>
@@ -160,17 +129,6 @@ export const sendInternalReviewNotification = async (
                 <p style="font-weight: bold; margin: 0 0 5px;">Review:</p>
                 <p style="margin: 0; white-space: pre-wrap;">${review.reviewText}</p>
             </div>
-
-            ${
-                review.email
-                    ? `
-            <div style="margin-bottom: 20px;">
-                <p style="font-weight: bold; margin: 0 0 5px;">Guest Email:</p>
-                <p style="margin: 0;">${review.email}</p>
-            </div>
-            `
-                    : ''
-            }
 
             <div style="margin-top: 30px; text-align: center;">
                 <a href="${process.env.VITE_APP_URL}/dashboard" 
