@@ -93,9 +93,17 @@ const Dashboard = () => {
     const fetchHotels = async () => {
         try {
             const { data } = await api.get('/api/hotels');
-            setHotels(Array.isArray(data) ? data : []);
-            if (data.length > 0 && !selectedHotel) {
-                setSelectedHotel(data[0]._id);
+            const hotelData = Array.isArray(data) ? data : [];
+            setHotels(hotelData);
+
+            // If user is not admin, use their assigned hotel
+            if (!user?.role || user.role !== 'admin') {
+                if (user?.hotel?._id) {
+                    setSelectedHotel(user.hotel._id);
+                }
+            } else if (hotelData.length > 0) {
+                // For admin, select first hotel if none selected
+                setSelectedHotel(hotelData[0]._id);
             }
         } catch (error) {
             console.error('Error fetching hotels:', error);
@@ -106,24 +114,30 @@ const Dashboard = () => {
     };
 
     const fetchEmailBatches = async () => {
+        if (!selectedHotel) return;
+
         setIsLoadingBatches(true);
         try {
             const { data } = await api.get(`/api/reviews/email-batches?hotelId=${selectedHotel}`);
-            setEmailBatches(data);
+            setEmailBatches(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error('Error fetching email batches:', error);
+            setError('Failed to fetch email history');
         } finally {
             setIsLoadingBatches(false);
         }
     };
 
     const fetchReviews = async () => {
+        if (!selectedHotel) return;
+
         setIsLoadingReviews(true);
         try {
             const { data } = await api.get(`/api/reviews?hotelId=${selectedHotel}`);
-            setReviews(data.reviews);
+            setReviews(Array.isArray(data.reviews) ? data.reviews : []);
         } catch (error) {
             console.error('Error fetching reviews:', error);
+            setError('Failed to fetch reviews');
         } finally {
             setIsLoadingReviews(false);
         }
@@ -149,7 +163,7 @@ const Dashboard = () => {
 
             setUploadResult(data.results);
             setEmailInput('');
-            fetchEmailBatches(); // Refresh the email batches list
+            await fetchEmailBatches(); // Refresh the email batches list
         } catch (error) {
             console.error('Error sending emails:', error);
             setError('Failed to send review requests');
@@ -178,7 +192,7 @@ const Dashboard = () => {
 
             setUploadResult(data.results);
             setEmailFile(null);
-            fetchEmailBatches(); // Refresh the email batches list
+            await fetchEmailBatches(); // Refresh the email batches list
         } catch (error) {
             console.error('Error uploading file:', error);
             setError('Failed to process email list');
@@ -325,6 +339,10 @@ const Dashboard = () => {
                                     <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
                                         <CircularProgress />
                                     </Box>
+                                ) : emailBatches.length === 0 ? (
+                                    <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                                        No email history available
+                                    </Typography>
                                 ) : (
                                     <TableContainer component={Paper} sx={{ mt: 2 }}>
                                         <Table>
@@ -375,6 +393,10 @@ const Dashboard = () => {
                                     <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
                                         <CircularProgress />
                                     </Box>
+                                ) : reviews.length === 0 ? (
+                                    <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                                        No reviews available
+                                    </Typography>
                                 ) : (
                                     <TableContainer component={Paper} sx={{ mt: 2 }}>
                                         <Table>
