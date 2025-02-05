@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Typography, Paper, LinearProgress } from '@mui/material';
+import { Container, Typography, Paper, LinearProgress } from '@mui/material';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Star } from 'lucide-react';
 import { api } from '../lib/api';
@@ -71,6 +71,22 @@ const ReviewForm: React.FC = () => {
         hotelId: hotelId || '',
     });
 
+    // Validate required parameters
+    if (!hotelId || !token) {
+        return (
+            <Container maxWidth="sm" sx={{ py: 8 }}>
+                <Paper sx={{ p: 4, textAlign: 'center' }}>
+                    <Typography variant="h6" color="error" gutterBottom>
+                        Invalid Review Link
+                    </Typography>
+                    <Typography color="text.secondary">
+                        This review link appears to be invalid or has expired. Please check your email for a valid review link.
+                    </Typography>
+                </Paper>
+            </Container>
+        );
+    }
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!reviewData.rating || !token || !hotelId) return;
@@ -100,6 +116,8 @@ const ReviewForm: React.FC = () => {
                 navigate('/thank-you');
             }, 1500);
         } catch (error) {
+            console.error('Review submission error:', error);
+
             const errorMessage =
                 error instanceof AxiosError
                     ? error.response?.data?.error || 'Failed to submit review'
@@ -114,31 +132,6 @@ const ReviewForm: React.FC = () => {
         }
     };
 
-    if (!hotelId || !token) {
-        return (
-            <Box
-                sx={{
-                    minHeight: '100vh',
-                    bgcolor: '#ffffff',
-                    py: 4,
-                    px: 2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                }}
-            >
-                <Paper sx={{ p: 4, maxWidth: 400, width: '100%', textAlign: 'center' }}>
-                    <Typography color="error" variant="h6">
-                        Invalid Review Link
-                    </Typography>
-                    <Typography color="text.secondary" sx={{ mt: 2 }}>
-                        This review link appears to be invalid or has expired.
-                    </Typography>
-                </Paper>
-            </Box>
-        );
-    }
-
     const currentDate = new Date().toISOString().split('T')[0];
 
     const inputBaseClasses =
@@ -147,16 +140,13 @@ const ReviewForm: React.FC = () => {
     return (
         <div className="min-h-screen bg-gray-50 py-8 px-4">
             <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-sm">
-                <div className="p-6 text-center border-b border-gray-100">
-                    <h1 className="text-2xl font-normal text-gray-900">Share your experience</h1>
-                </div>
-
                 {isSubmitting && (
                     <LinearProgress
                         variant="determinate"
                         value={submitProgress}
                         sx={{
                             height: 8,
+                            borderRadius: '8px 8px 0 0',
                             backgroundColor: 'rgba(66, 133, 244, 0.1)',
                             '& .MuiLinearProgress-bar': {
                                 backgroundColor: '#4285f4',
@@ -164,6 +154,10 @@ const ReviewForm: React.FC = () => {
                         }}
                     />
                 )}
+
+                <div className="p-6 text-center border-b border-gray-100">
+                    <h1 className="text-2xl font-normal text-gray-900">Share your experience</h1>
+                </div>
 
                 <div className="p-6">
                     <form onSubmit={handleSubmit} className="space-y-6">
