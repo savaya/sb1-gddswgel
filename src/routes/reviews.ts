@@ -13,29 +13,11 @@ import type { UserDocument } from '../types/mongodb.js';
 
 const router = express.Router();
 
-// Cache token verifications
-const tokenCache = new Map<string, { email: string; hotelId: string; expires: number }>();
-
-// Verify email token with caching
+// Verify email token
 const verifyEmailToken = (token: string): { email: string; hotelId: string } => {
     try {
-        // Check cache first
-        const cached = tokenCache.get(token);
-        if (cached && cached.expires > Date.now()) {
-            return { email: cached.email, hotelId: cached.hotelId };
-        }
-
-        // Verify token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as { email: string; hotelId: string; exp?: number };
-
-        // Cache the result
-        tokenCache.set(token, {
-            email: decoded.email,
-            hotelId: decoded.hotelId,
-            expires: (decoded.exp || 0) * 1000,
-        });
-
-        return { email: decoded.email, hotelId: decoded.hotelId };
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+        return decoded as { email: string; hotelId: string };
     } catch (error) {
         throw new ApiError(401, 'Invalid or expired token');
     }
@@ -55,7 +37,7 @@ router.post('/internal', async (req, res) => {
     }
 
     try {
-        // Verify token and get email - now cached
+        // Verify token and get email
         const { email, hotelId: tokenHotelId } = verifyEmailToken(token);
 
         // Quick validation
@@ -63,7 +45,7 @@ router.post('/internal', async (req, res) => {
             throw new ApiError(400, 'Invalid hotel ID');
         }
 
-        // Create review document - minimal fields for speed
+        // Create review document - minimal fields
         const review = await Review.create({
             hotelId: new Types.ObjectId(hotelId),
             guestName: guestName.trim(),
@@ -79,7 +61,7 @@ router.post('/internal', async (req, res) => {
         res.status(201).json(review);
 
         // Process email notification in the background
-        setImmediate(() => {
+        process.nextTick(() => {
             sendInternalReviewNotification(hotelId, review).catch((error) => logger.error('Failed to send review notification:', error));
         });
     } catch (error) {

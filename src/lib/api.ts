@@ -4,7 +4,7 @@ import { config } from './config.js';
 // Create axios instance with base configuration
 export const api = axios.create({
     baseURL: process.env.NODE_ENV === 'production' ? window.location.origin : config.apiUrl,
-    timeout: 15000, // Back to 15 seconds - should be plenty
+    timeout: 30000, // Increase timeout to 30 seconds
     withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
