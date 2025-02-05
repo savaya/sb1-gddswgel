@@ -4,7 +4,7 @@ import Hotel from '../models/Hotel.js';
 import EmailBatch from '../models/EmailBatch.js';
 import Review from '../models/Review.js';
 import { ApiError } from '../lib/error.js';
-import { sendReviewRequest } from '../lib/email.js';
+import { sendReviewRequest, sendInternalReviewNotification } from '../lib/email.js';
 import { validateEmails } from '../lib/validators.js';
 import logger from '../lib/logger.js';
 import jwt from 'jsonwebtoken';
@@ -12,6 +12,7 @@ import type { UserDocument } from '../types/mongodb.js';
 
 const router = express.Router();
 
+// Submit internal review
 // Submit internal review
 router.post('/internal', async (req, res) => {
     const { hotelId, guestName, stayDate, rating, reviewText, token } = req.body;
@@ -49,16 +50,29 @@ router.post('/internal', async (req, res) => {
             throw new ApiError(404, 'Hotel not found');
         }
 
-        // Create review document
-        const review = await Review.create({
+        // Create review document with guest email from token
+        const reviewData = {
             hotelId,
             guestName: guestName.trim(),
             stayDate: new Date(stayDate),
             rating,
             reviewText: reviewText.trim(),
+            guestEmail: decoded.email, // Store the email from the token
             isInternal: true,
             emailSent: true,
             createdAt: new Date(),
+        };
+
+        const review = await Review.create(reviewData);
+
+        // Send notification email in background
+        // Using Promise to handle errors but not delay response
+        Promise.resolve().then(async () => {
+            try {
+                await sendInternalReviewNotification(hotelId, reviewData);
+            } catch (error) {
+                logger.error('Failed to send review notification:', error);
+            }
         });
 
         res.status(201).json(review);
