@@ -12,7 +12,6 @@ import type { UserDocument } from '../types/mongodb.js';
 
 const router = express.Router();
 
-// Submit internal review
 router.post('/internal', async (req, res) => {
     const { hotelId, guestName, stayDate, rating, reviewText, token } = req.body;
 
@@ -20,27 +19,36 @@ router.post('/internal', async (req, res) => {
         // Input validation
         if (!token || !hotelId) {
             logger.error('Missing token or hotelId in review submission');
-            throw new ApiError(401, 'Invalid request - missing required parameters');
+            throw new ApiError(401, 'Invalid request');
         }
 
         // Token verification
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as {
-            hotelId: string;
-            email: string;
-            type: string;
-        };
-
-        // Validate token type and hotel ID
-        if (decoded.type !== 'review' || decoded.hotelId !== hotelId) {
-            logger.error('Invalid token type or hotel mismatch', {
-                tokenType: decoded.type,
-                tokenHotelId: decoded.hotelId,
-                requestHotelId: hotelId,
-            });
-            throw new ApiError(401, 'Invalid or expired review link');
+        let decoded;
+        try {
+            decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as {
+                hotelId: string;
+                email: string;
+                type: string;
+            };
+        } catch (error) {
+            throw new ApiError(401, 'Invalid or expired token');
         }
 
-        // Data validation
+        // Ensure both hotelIds are strings for comparison
+        const tokenHotelId = decoded.hotelId.toString();
+        const requestHotelId = hotelId.toString();
+
+        // Validate token data
+        if (!decoded.type || decoded.type !== 'review' || tokenHotelId !== requestHotelId) {
+            logger.error('Token validation failed', {
+                tokenType: decoded.type,
+                tokenHotelId,
+                requestHotelId,
+            });
+            throw new ApiError(401, 'Invalid token');
+        }
+
+        // Quick validation
         if (!guestName?.trim() || !stayDate || !rating || !reviewText?.trim()) {
             throw new ApiError(400, 'Missing required fields');
         }
@@ -63,28 +71,26 @@ router.post('/internal', async (req, res) => {
             createdAt: new Date(),
         });
 
-        // Send notification in background without awaiting
-        Promise.resolve().then(() => {
-            sendInternalReviewNotification(hotelId, review).catch((error) => {
-                logger.error('Failed to send review notification:', error);
-            });
-        });
+        // Send success response first
+        res.status(201).json(review);
 
-        // Send success response
-        logger.info('Review submitted successfully', { reviewId: review._id });
-        return res.status(201).json(review);
+        // Send notification in background
+        void Promise.resolve().then(async () => {
+            try {
+                await sendInternalReviewNotification(hotelId, review);
+                logger.info('Review notification sent', { reviewId: review._id });
+            } catch (error) {
+                logger.error('Failed to send review notification:', error);
+            }
+        });
     } catch (error) {
         logger.error('Review submission error:', error);
 
-        if (error instanceof jwt.JsonWebTokenError) {
-            throw new ApiError(401, 'Invalid or expired review link. Please request a new one.', error);
-        }
-
         if (error instanceof ApiError) {
-            throw error; // Let the error handler deal with it
+            throw error;
         }
 
-        throw new ApiError(500, 'Error submitting review. Please try again.', error);
+        throw new ApiError(500, 'Error submitting review');
     }
 });
 
@@ -160,18 +166,7 @@ router.post('/send-requests', auth, async (req, res) => {
     // Process emails
     for (const emailEntry of emailBatch.emails) {
         try {
-            // Generate a JWT token for each email
-            const token = jwt.sign(
-                {
-                    hotelId: targetHotelId,
-                    email: emailEntry.email,
-                    type: 'review',
-                },
-                process.env.JWT_SECRET || 'your-secret-key',
-                { expiresIn: '7d' }, // Token expires in 7 days
-            );
-
-            await sendReviewRequest(emailEntry.email, hotel.name, hotel._id.toString(), hotel.googleReviewLink || '', token);
+            await sendReviewRequest(emailEntry.email, hotel.name, hotel._id.toString(), hotel.googleReviewLink || '');
 
             emailEntry.status = 'sent';
             emailEntry.sentAt = new Date();

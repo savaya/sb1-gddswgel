@@ -4,6 +4,7 @@ import logger from './logger.js';
 import Hotel from '../models/Hotel.js';
 import User from '../models/User.js';
 import type { ReviewDocument } from '../types/mongodb.js';
+import jwt from 'jsonwebtoken';
 
 // Create reusable transporter object using SMTP
 const createTransporter = () => {
@@ -24,13 +25,7 @@ const createTransporter = () => {
     });
 };
 
-export const sendReviewRequest = async (
-    email: string,
-    hotelName: string,
-    hotelId: string,
-    googleReviewLink: string,
-    token: string,
-): Promise<void> => {
+export const sendReviewRequest = async (email: string, hotelName: string, hotelId: string, googleReviewLink: string) => {
     try {
         const transporter = createTransporter();
         const from = process.env.SMTP_FROM || process.env.SMTP_USER;
@@ -38,6 +33,17 @@ export const sendReviewRequest = async (
         if (!from) {
             throw new ApiError(500, 'Missing SMTP_FROM configuration');
         }
+
+        // Generate token here instead of receiving it as parameter
+        const token = jwt.sign(
+            {
+                hotelId: hotelId.toString(),
+                email,
+                type: 'review',
+            },
+            process.env.JWT_SECRET || 'your-secret-key',
+            { expiresIn: '7d' },
+        );
 
         const positiveLink = googleReviewLink || `${process.env.VITE_APP_URL}/review/external/${hotelId}`;
         const negativeLink = `${process.env.VITE_APP_URL}/review?hotel=${hotelId}&token=${token}`;
