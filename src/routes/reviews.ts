@@ -8,22 +8,11 @@ import { sendReviewRequest, sendInternalReviewNotification } from '../lib/email.
 import { validateEmails } from '../lib/validators.js';
 import logger from '../lib/logger.js';
 import { Types } from 'mongoose';
-import jwt from 'jsonwebtoken';
 import type { UserDocument } from '../types/mongodb.js';
 
 const router = express.Router();
 
-// Verify email token
-const verifyEmailToken = (token: string): { email: string; hotelId: string } => {
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-        return decoded as { email: string; hotelId: string };
-    } catch (error) {
-        throw new ApiError(401, 'Invalid or expired token');
-    }
-};
-
-// Submit internal review - optimized version
+// Submit internal review
 router.post('/internal', async (req, res) => {
     const { hotelId, guestName, stayDate, rating, reviewText, token } = req.body;
 
@@ -37,19 +26,10 @@ router.post('/internal', async (req, res) => {
     }
 
     try {
-        // Verify token and get email
-        const { email, hotelId: tokenHotelId } = verifyEmailToken(token);
-
-        // Quick validation
-        if (tokenHotelId !== hotelId) {
-            throw new ApiError(400, 'Invalid hotel ID');
-        }
-
-        // Create review document - minimal fields
+        // Create review document
         const review = await Review.create({
             hotelId: new Types.ObjectId(hotelId),
             guestName: guestName.trim(),
-            email,
             stayDate: new Date(stayDate),
             rating,
             reviewText: reviewText.trim(),
@@ -57,12 +37,13 @@ router.post('/internal', async (req, res) => {
             emailSent: true,
         });
 
-        // Send success response immediately
         res.status(201).json(review);
 
-        // Process email notification in the background
+        // Send notification email in background
         process.nextTick(() => {
-            sendInternalReviewNotification(hotelId, review).catch((error) => logger.error('Failed to send review notification:', error));
+            sendInternalReviewNotification(hotelId, review).catch((error: Error) =>
+                logger.error('Failed to send review notification:', error),
+            );
         });
     } catch (error) {
         if (error instanceof ApiError) {
@@ -144,12 +125,7 @@ router.post('/send-requests', auth, async (req, res) => {
     // Process emails
     for (const emailEntry of emailBatch.emails) {
         try {
-            // Generate token for this email
-            const token = jwt.sign({ email: emailEntry.email, hotelId: targetHotelId }, process.env.JWT_SECRET || 'your-secret-key', {
-                expiresIn: '7d',
-            });
-
-            await sendReviewRequest(emailEntry.email, hotel.name, hotel._id.toString(), hotel.googleReviewLink || '', token);
+            await sendReviewRequest(emailEntry.email, hotel.name, hotel._id.toString(), hotel.googleReviewLink || '');
             emailEntry.status = 'sent';
             emailEntry.sentAt = new Date();
         } catch (error) {
