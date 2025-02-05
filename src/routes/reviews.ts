@@ -1,8 +1,9 @@
 import express from 'express';
 import auth from '../middleware/auth.js';
-import Review from '../models/Review.js';
+import { validate, schemas } from '../middleware/validate.js';
 import Hotel from '../models/Hotel.js';
 import EmailBatch from '../models/EmailBatch.js';
+import Review from '../models/Review.js';
 import { ApiError } from '../lib/error.js';
 import { sendReviewRequest, sendInternalReviewNotification } from '../lib/email.js';
 import { validateEmails } from '../lib/validators.js';
@@ -124,6 +125,40 @@ router.post('/send-requests', auth, async (req, res) => {
         message: `Review requests processed: ${results.success} sent, ${results.failed} failed`,
         results,
     });
+});
+
+// Get email batches
+router.get('/email-batches', auth, async (req, res) => {
+    const { hotelId } = req.query;
+    const user = req.user as UserDocument;
+
+    // For admin users without hotelId, return all batches
+    const query = user.role === 'admin' ? (hotelId ? { hotelId } : {}) : { hotelId: user.hotel };
+
+    // Regular users must have an assigned hotel
+    if (user.role !== 'admin' && !user.hotel) {
+        throw new ApiError(400, 'No hotel assigned to user');
+    }
+
+    const batches = await EmailBatch.find(query).sort({ createdAt: -1 }).limit(50).lean();
+
+    const formattedBatches = batches.map((batch) => ({
+        _id: batch._id,
+        createdAt: batch.createdAt,
+        completedAt: batch.completedAt,
+        emailCount: batch.emails.length,
+        sentCount: batch.emails.filter((entry) => entry.status === 'sent').length,
+        failedCount: batch.emails.filter((entry) => entry.status === 'failed').length,
+        status: batch.status,
+        emails: batch.emails.map((entry) => ({
+            email: entry.email,
+            status: entry.status,
+            sentAt: entry.sentAt,
+            error: entry.error,
+        })),
+    }));
+
+    res.json(formattedBatches);
 });
 
 router.post('/internal', async (req, res) => {
