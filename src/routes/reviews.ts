@@ -1,6 +1,5 @@
 import express from 'express';
 import auth from '../middleware/auth.js';
-import { validate, schemas } from '../middleware/validate.js';
 import Hotel from '../models/Hotel.js';
 import EmailBatch from '../models/EmailBatch.js';
 import Review from '../models/Review.js';
