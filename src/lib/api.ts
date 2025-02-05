@@ -7,7 +7,7 @@ export const api = axios.create({
         process.env.NODE_ENV === 'production'
             ? window.location.origin // Use the same origin in production
             : config.apiUrl,
-    timeout: 10000,
+    timeout: 30000, // Increase timeout to 30 seconds
     withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
@@ -27,11 +27,15 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
-        // Handle 401 responses
+        if (error.code === 'ECONNABORTED') {
+            throw new Error('Request timed out. Please try again.');
+        }
         if (error.response?.status === 401) {
             localStorage.removeItem('token');
-            window.location.href = '/login';
+            if (!window.location.pathname.includes('/review')) {
+                window.location.href = '/login';
+            }
         }
-        return Promise.reject(error);
+        throw error;
     },
 );

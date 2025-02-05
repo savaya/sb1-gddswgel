@@ -22,8 +22,15 @@ import {
     TableRow,
     Paper,
     Rating,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Chip,
+    IconButton,
+    Tooltip,
 } from '@mui/material';
-import { Upload, Send, Mail } from 'lucide-react';
+import { Upload, Send, Mail, Eye, X, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api';
 import { format } from 'date-fns';
@@ -78,6 +85,8 @@ const Dashboard = () => {
     const [reviews, setReviews] = useState<Review[]>([]);
     const [isLoadingBatches, setIsLoadingBatches] = useState(false);
     const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+    const [selectedBatch, setSelectedBatch] = useState<EmailBatch | null>(null);
+    const [selectedReview, setSelectedReview] = useState<Review | null>(null);
 
     useEffect(() => {
         fetchHotels();
@@ -96,13 +105,11 @@ const Dashboard = () => {
             const hotelData = Array.isArray(data) ? data : [];
             setHotels(hotelData);
 
-            // If user is not admin, use their assigned hotel
             if (!user?.role || user.role !== 'admin') {
                 if (user?.hotel?._id) {
                     setSelectedHotel(user.hotel._id);
                 }
             } else if (hotelData.length > 0) {
-                // For admin, select first hotel if none selected
                 setSelectedHotel(hotelData[0]._id);
             }
         } catch (error) {
@@ -163,7 +170,7 @@ const Dashboard = () => {
 
             setUploadResult(data.results);
             setEmailInput('');
-            await fetchEmailBatches(); // Refresh the email batches list
+            await fetchEmailBatches();
         } catch (error) {
             console.error('Error sending emails:', error);
             setError('Failed to send review requests');
@@ -180,19 +187,27 @@ const Dashboard = () => {
         setUploadResult(null);
 
         try {
-            const formData = new FormData();
-            formData.append('file', emailFile);
-            formData.append('hotelId', selectedHotel);
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const text = e.target?.result;
+                if (typeof text !== 'string') return;
 
-            const { data } = await api.post('/api/reviews/send-requests', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-            });
+                const emails = text
+                    .split('\n')
+                    .map((line) => line.split(',')[0].trim()) // Assume email is first column
+                    .filter((email) => email && email.includes('@')); // Basic validation
 
-            setUploadResult(data.results);
-            setEmailFile(null);
-            await fetchEmailBatches(); // Refresh the email batches list
+                const { data } = await api.post('/api/reviews/send-requests', {
+                    emails,
+                    hotelId: selectedHotel,
+                });
+
+                setUploadResult(data.results);
+                setEmailFile(null);
+                await fetchEmailBatches();
+            };
+
+            reader.readAsText(emailFile);
         } catch (error) {
             console.error('Error uploading file:', error);
             setError('Failed to process email list');
@@ -216,14 +231,12 @@ const Dashboard = () => {
             </Typography>
 
             {user?.role === 'admin' && (
-                <Card sx={{ mb: 4, borderColor: !selectedHotel ? 'error.main' : 'transparent' }}>
+                <Card sx={{ mb: 4 }}>
                     <CardContent>
                         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                            <Typography variant="h6" sx={{ color: !selectedHotel ? 'error.main' : 'inherit' }}>
-                                Select Hotel
-                            </Typography>
+                            <Typography variant="h6">Select Hotel</Typography>
                         </Box>
-                        <FormControl fullWidth error={!selectedHotel}>
+                        <FormControl fullWidth>
                             <InputLabel>Hotel</InputLabel>
                             <Select
                                 value={selectedHotel}
@@ -353,6 +366,7 @@ const Dashboard = () => {
                                                     <TableCell>Sent</TableCell>
                                                     <TableCell>Failed</TableCell>
                                                     <TableCell>Status</TableCell>
+                                                    <TableCell align="right">Actions</TableCell>
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
@@ -363,14 +377,25 @@ const Dashboard = () => {
                                                         <TableCell>{batch.sentCount}</TableCell>
                                                         <TableCell>{batch.failedCount}</TableCell>
                                                         <TableCell>
-                                                            <Typography
-                                                                variant="body2"
-                                                                sx={{
-                                                                    color: batch.status === 'completed' ? 'success.main' : 'error.main',
-                                                                }}
-                                                            >
-                                                                {batch.status}
-                                                            </Typography>
+                                                            <Chip
+                                                                size="small"
+                                                                label={batch.status}
+                                                                color={batch.status === 'completed' ? 'success' : 'error'}
+                                                                icon={
+                                                                    batch.status === 'completed' ? (
+                                                                        <CheckCircle size={16} />
+                                                                    ) : (
+                                                                        <AlertCircle size={16} />
+                                                                    )
+                                                                }
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell align="right">
+                                                            <Tooltip title="View Details">
+                                                                <IconButton size="small" onClick={() => setSelectedBatch(batch)}>
+                                                                    <Eye size={18} />
+                                                                </IconButton>
+                                                            </Tooltip>
                                                         </TableCell>
                                                     </TableRow>
                                                 ))}
@@ -386,7 +411,7 @@ const Dashboard = () => {
                         <Card>
                             <CardContent>
                                 <Typography variant="h6" gutterBottom>
-                                    Reviews
+                                    Reviews Overview
                                 </Typography>
 
                                 {isLoadingReviews ? (
@@ -405,7 +430,8 @@ const Dashboard = () => {
                                                     <TableCell>Date</TableCell>
                                                     <TableCell>Guest</TableCell>
                                                     <TableCell>Rating</TableCell>
-                                                    <TableCell>Review</TableCell>
+                                                    <TableCell>Review Preview</TableCell>
+                                                    <TableCell align="right">Actions</TableCell>
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
@@ -416,7 +442,18 @@ const Dashboard = () => {
                                                         <TableCell>
                                                             <Rating value={review.rating} readOnly size="small" />
                                                         </TableCell>
-                                                        <TableCell>{review.reviewText}</TableCell>
+                                                        <TableCell>
+                                                            {review.reviewText.length > 100
+                                                                ? `${review.reviewText.substring(0, 100)}...`
+                                                                : review.reviewText}
+                                                        </TableCell>
+                                                        <TableCell align="right">
+                                                            <Tooltip title="View Full Review">
+                                                                <IconButton size="small" onClick={() => setSelectedReview(review)}>
+                                                                    <Eye size={18} />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                        </TableCell>
                                                     </TableRow>
                                                 ))}
                                             </TableBody>
@@ -428,6 +465,133 @@ const Dashboard = () => {
                     </Grid>
                 </Grid>
             )}
+
+            {/* Email Batch Details Dialog */}
+            <Dialog open={!!selectedBatch} onClose={() => setSelectedBatch(null)} maxWidth="md" fullWidth>
+                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="h6">Checkout Submission Details</Typography>
+                    <IconButton size="small" onClick={() => setSelectedBatch(null)} sx={{ color: 'text.secondary' }}>
+                        <X size={20} />
+                    </IconButton>
+                </DialogTitle>
+                <DialogContent dividers>
+                    {selectedBatch && (
+                        <Box>
+                            <Grid container spacing={2} sx={{ mb: 3 }}>
+                                <Grid item xs={12} sm={6}>
+                                    <Typography variant="subtitle2" color="text.secondary">
+                                        Date/Time
+                                    </Typography>
+                                    <Typography variant="body1">
+                                        {format(new Date(selectedBatch.createdAt), 'MMM d, yyyy HH:mm')}
+                                    </Typography>
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <Typography variant="subtitle2" color="text.secondary">
+                                        Status
+                                    </Typography>
+                                    <Chip
+                                        size="small"
+                                        label={selectedBatch.status}
+                                        color={selectedBatch.status === 'completed' ? 'success' : 'error'}
+                                        icon={selectedBatch.status === 'completed' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+                                    />
+                                </Grid>
+                            </Grid>
+
+                            <Typography variant="subtitle1" gutterBottom>
+                                Email Details
+                            </Typography>
+                            <TableContainer component={Paper} variant="outlined">
+                                <Table size="small">
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>Email</TableCell>
+                                            <TableCell>Status</TableCell>
+                                            <TableCell>Sent At</TableCell>
+                                            <TableCell>Error</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {selectedBatch.emails.map((email, index) => (
+                                            <TableRow key={index}>
+                                                <TableCell>{email.email}</TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        size="small"
+                                                        label={email.status}
+                                                        color={email.status === 'sent' ? 'success' : 'error'}
+                                                    />
+                                                </TableCell>
+                                                <TableCell>{email.sentAt ? format(new Date(email.sentAt), 'HH:mm:ss') : '-'}</TableCell>
+                                                <TableCell>{email.error || '-'}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setSelectedBatch(null)}>Close</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Review Details Dialog */}
+            <Dialog open={!!selectedReview} onClose={() => setSelectedReview(null)} maxWidth="sm" fullWidth>
+                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="h6">Review Details</Typography>
+                    <IconButton size="small" onClick={() => setSelectedReview(null)} sx={{ color: 'text.secondary' }}>
+                        <X size={20} />
+                    </IconButton>
+                </DialogTitle>
+                <DialogContent dividers>
+                    {selectedReview && (
+                        <Box>
+                            <Grid container spacing={2} sx={{ mb: 3 }}>
+                                <Grid item xs={12}>
+                                    <Typography variant="subtitle2" color="text.secondary">
+                                        Guest
+                                    </Typography>
+                                    <Typography variant="body1">{selectedReview.guestName}</Typography>
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <Typography variant="subtitle2" color="text.secondary">
+                                        Date
+                                    </Typography>
+                                    <Typography variant="body1">{format(new Date(selectedReview.createdAt), 'MMM d, yyyy')}</Typography>
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <Typography variant="subtitle2" color="text.secondary">
+                                        Rating
+                                    </Typography>
+                                    <Rating value={selectedReview.rating} readOnly />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <Typography variant="subtitle2" color="text.secondary">
+                                        Review
+                                    </Typography>
+                                    <Paper
+                                        variant="outlined"
+                                        sx={{
+                                            p: 2,
+                                            mt: 1,
+                                            backgroundColor: 'background.default',
+                                            whiteSpace: 'pre-wrap',
+                                        }}
+                                    >
+                                        <Typography variant="body1">{selectedReview.reviewText}</Typography>
+                                    </Paper>
+                                </Grid>
+                            </Grid>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setSelectedReview(null)}>Close</Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };
