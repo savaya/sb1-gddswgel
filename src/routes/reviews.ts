@@ -13,7 +13,6 @@ import type { UserDocument } from '../types/mongodb.js';
 const router = express.Router();
 
 // Submit internal review
-// Submit internal review
 router.post('/internal', async (req, res) => {
     const { hotelId, guestName, stayDate, rating, reviewText, token } = req.body;
 
@@ -69,7 +68,7 @@ router.post('/internal', async (req, res) => {
         // Using Promise to handle errors but not delay response
         Promise.resolve().then(async () => {
             try {
-                await sendInternalReviewNotification(hotelId, reviewData);
+                await sendInternalReviewNotification(hotelId, review);
             } catch (error) {
                 logger.error('Failed to send review notification:', error);
             }
