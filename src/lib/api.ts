@@ -3,11 +3,8 @@ import { config } from './config.js';
 
 // Create axios instance with base configuration
 export const api = axios.create({
-    baseURL:
-        process.env.NODE_ENV === 'production'
-            ? window.location.origin // Use the same origin in production
-            : config.apiUrl,
-    timeout: 30000, // Increase timeout to 30 seconds
+    baseURL: process.env.NODE_ENV === 'production' ? window.location.origin : config.apiUrl,
+    timeout: 15000, // Back to 15 seconds - should be plenty
     withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
@@ -27,10 +24,6 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
-        if (error.code === 'ECONNABORTED') {
-            throw new Error('Request timed out. Please try again.');
-        }
-
         // Handle 401 responses
         if (error.response?.status === 401) {
             localStorage.removeItem('token');
