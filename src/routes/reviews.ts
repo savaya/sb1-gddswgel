@@ -9,7 +9,7 @@ import { validateEmails } from '../lib/validators.js';
 import logger from '../lib/logger.js';
 import { Types } from 'mongoose';
 import jwt from 'jsonwebtoken';
-import type { ReviewDocument, UserDocument } from '../types/mongodb.js';
+import type { UserDocument } from '../types/mongodb.js';
 
 const router = express.Router();
 
@@ -23,6 +23,56 @@ const verifyEmailToken = (token: string): { email: string; hotelId: string } => 
     }
 };
 
+// Submit internal review
+router.post('/internal', async (req, res) => {
+    try {
+        const { hotelId, guestName, stayDate, rating, reviewText, token } = req.body;
+
+        if (!token) {
+            throw new ApiError(401, 'No token provided');
+        }
+
+        // Quick validation
+        if (!guestName?.trim() || !stayDate || !rating || !reviewText?.trim()) {
+            throw new ApiError(400, 'Missing required fields');
+        }
+
+        // Verify token and get email
+        const { email, hotelId: tokenHotelId } = verifyEmailToken(token);
+
+        // Verify hotelId matches
+        if (tokenHotelId !== hotelId) {
+            throw new ApiError(400, 'Invalid hotel ID');
+        }
+
+        // Create review document
+        const review = await Review.create({
+            hotelId: new Types.ObjectId(hotelId),
+            guestName: guestName.trim(),
+            email,
+            stayDate: new Date(stayDate),
+            rating,
+            reviewText: reviewText.trim(),
+            isInternal: true,
+            emailSent: true,
+            createdAt: new Date(),
+        });
+
+        // Send notification email asynchronously - don't await
+        sendInternalReviewNotification(hotelId, review).catch((error) => {
+            logger.error('Failed to send review notification:', error);
+        });
+
+        res.status(201).json(review);
+    } catch (error) {
+        if (error instanceof ApiError) {
+            throw error;
+        }
+        throw new ApiError(500, 'Error creating review');
+    }
+});
+
+// Get reviews
 router.get('/', auth, async (req, res) => {
     const { hotelId } = req.query;
     const user = req.user as UserDocument;
@@ -49,6 +99,7 @@ router.get('/', auth, async (req, res) => {
     res.json({ reviews });
 });
 
+// Send review requests
 router.post('/send-requests', auth, async (req, res) => {
     const { emails, hotelId } = req.body;
     const user = req.user as UserDocument;
@@ -99,7 +150,6 @@ router.post('/send-requests', auth, async (req, res) => {
             });
 
             await sendReviewRequest(emailEntry.email, hotel.name, hotel._id.toString(), hotel.googleReviewLink || '', token);
-
             emailEntry.status = 'sent';
             emailEntry.sentAt = new Date();
         } catch (error) {
@@ -158,54 +208,6 @@ router.get('/email-batches', auth, async (req, res) => {
     }));
 
     res.json(formattedBatches);
-});
-
-router.post('/internal', async (req, res) => {
-    try {
-        const { hotelId, guestName, stayDate, rating, reviewText, token } = req.body;
-
-        if (!token) {
-            throw new ApiError(401, 'No token provided');
-        }
-
-        // Verify the token and get the email
-        const { email, hotelId: tokenHotelId } = verifyEmailToken(token);
-
-        // Verify the hotelId matches
-        if (tokenHotelId !== hotelId) {
-            throw new ApiError(400, 'Invalid hotel ID');
-        }
-
-        const hotel = await Hotel.findById(hotelId);
-        if (!hotel) {
-            throw new ApiError(404, 'Hotel not found');
-        }
-
-        // Create the review document with explicit type casting
-        const reviewData: ReviewDocument = {
-            hotelId: new Types.ObjectId(hotelId),
-            guestName,
-            email,
-            stayDate: new Date(stayDate),
-            rating,
-            reviewText,
-            isInternal: true,
-            emailSent: true,
-            createdAt: new Date(),
-        };
-
-        const review = await Review.create(reviewData);
-
-        // Send notification email to hotel staff
-        await sendInternalReviewNotification(hotelId, reviewData);
-
-        res.status(201).json(review);
-    } catch (error) {
-        if (error instanceof ApiError) {
-            throw error;
-        }
-        throw new ApiError(500, 'Error creating review');
-    }
 });
 
 export default router;

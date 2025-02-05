@@ -30,12 +30,18 @@ api.interceptors.response.use(
         if (error.code === 'ECONNABORTED') {
             throw new Error('Request timed out. Please try again.');
         }
+
+        // Handle 401 responses
         if (error.response?.status === 401) {
             localStorage.removeItem('token');
             if (!window.location.pathname.includes('/review')) {
                 window.location.href = '/login';
             }
         }
+
+        // Enhance error message
+        const message = error.response?.data?.error || error.message;
+        error.message = message;
         throw error;
     },
 );
