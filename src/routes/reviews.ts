@@ -8,6 +8,7 @@ import { sendReviewRequest, sendInternalReviewNotification } from '../lib/email.
 import { validateEmails } from '../lib/validators.js';
 import logger from '../lib/logger.js';
 import { Types } from 'mongoose';
+import jwt from 'jsonwebtoken';
 import type { UserDocument } from '../types/mongodb.js';
 
 const router = express.Router();
