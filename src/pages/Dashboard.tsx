@@ -392,7 +392,11 @@ const Dashboard = () => {
                                                         </TableCell>
                                                         <TableCell align="right">
                                                             <Tooltip title="View Details">
-                                                                <IconButton size="small" onClick={() => setSelectedBatch(batch)}>
+                                                                <IconButton
+                                                                    size="small"
+                                                                    onClick={() => setSelectedBatch(batch)}
+                                                                    sx={{ color: 'white' }}
+                                                                >
                                                                     <Eye size={18} />
                                                                 </IconButton>
                                                             </Tooltip>
@@ -449,7 +453,11 @@ const Dashboard = () => {
                                                         </TableCell>
                                                         <TableCell align="right">
                                                             <Tooltip title="View Full Review">
-                                                                <IconButton size="small" onClick={() => setSelectedReview(review)}>
+                                                                <IconButton
+                                                                    size="small"
+                                                                    onClick={() => setSelectedReview(review)}
+                                                                    sx={{ color: 'white' }}
+                                                                >
                                                                     <Eye size={18} />
                                                                 </IconButton>
                                                             </Tooltip>
