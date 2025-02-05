@@ -1,29 +1,40 @@
 import axios from 'axios';
-import { config } from './config.js';
+import { config } from './config';
 
-// Create axios instance with base configuration
 export const api = axios.create({
     baseURL: process.env.NODE_ENV === 'production' ? window.location.origin : config.apiUrl,
-    timeout: 10000,
+    timeout: 30000, // Increased timeout to 30 seconds
     withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
     },
 });
 
-// Request interceptor
-api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-});
+// Add request interceptor for debugging
+api.interceptors.request.use(
+    (config) => {
+        console.log('API Request:', {
+            url: config.url,
+            method: config.method,
+            data: config.data,
+        });
+        return config;
+    },
+    (error) => {
+        console.error('API Request Error:', error);
+        return Promise.reject(error);
+    },
+);
 
-// Response interceptor
+// Add response interceptor for debugging
 api.interceptors.response.use(
-    (response) => response,
-    async (error) => {
+    (response) => {
+        console.log('API Response:', response.data);
+        return response;
+    },
+    (error) => {
+        console.error('API Response Error:', error.response || error);
+
         // Handle 401 responses
         if (error.response?.status === 401) {
             localStorage.removeItem('token');
@@ -32,7 +43,6 @@ api.interceptors.response.use(
             }
         }
 
-        // Enhance error message
         const message = error.response?.data?.error || error.message;
         error.message = message;
         throw error;

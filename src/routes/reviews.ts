@@ -16,13 +16,14 @@ const router = express.Router();
 router.post('/internal', async (req, res) => {
     const { hotelId, guestName, stayDate, rating, reviewText, token } = req.body;
 
-    if (!token || !hotelId) {
-        logger.error('Missing token or hotelId in review submission');
-        throw new ApiError(401, 'Invalid request - missing required parameters');
-    }
-
     try {
-        // Verify the token with additional checks
+        // Input validation
+        if (!token || !hotelId) {
+            logger.error('Missing token or hotelId in review submission');
+            throw new ApiError(401, 'Invalid request - missing required parameters');
+        }
+
+        // Token verification
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as {
             hotelId: string;
             email: string;
@@ -39,7 +40,7 @@ router.post('/internal', async (req, res) => {
             throw new ApiError(401, 'Invalid or expired review link');
         }
 
-        // Quick validation
+        // Data validation
         if (!guestName?.trim() || !stayDate || !rating || !reviewText?.trim()) {
             throw new ApiError(400, 'Missing required fields');
         }
@@ -49,42 +50,41 @@ router.post('/internal', async (req, res) => {
             throw new ApiError(404, 'Hotel not found');
         }
 
-        // Create review document with guest email from token
-        const reviewData = {
+        // Create review document
+        const review = await Review.create({
             hotelId,
             guestName: guestName.trim(),
             stayDate: new Date(stayDate),
             rating,
             reviewText: reviewText.trim(),
-            guestEmail: decoded.email, // Store the email from the token
+            guestEmail: decoded.email,
             isInternal: true,
             emailSent: true,
             createdAt: new Date(),
-        };
-
-        const review = await Review.create(reviewData);
-
-        // Send notification email in background
-        // Using Promise to handle errors but not delay response
-        Promise.resolve().then(async () => {
-            try {
-                await sendInternalReviewNotification(hotelId, review);
-            } catch (error) {
-                logger.error('Failed to send review notification:', error);
-            }
         });
 
-        res.status(201).json(review);
+        // Send notification in background without awaiting
+        Promise.resolve().then(() => {
+            sendInternalReviewNotification(hotelId, review).catch((error) => {
+                logger.error('Failed to send review notification:', error);
+            });
+        });
+
+        // Send success response
+        logger.info('Review submitted successfully', { reviewId: review._id });
+        return res.status(201).json(review);
     } catch (error) {
         logger.error('Review submission error:', error);
 
         if (error instanceof jwt.JsonWebTokenError) {
-            throw new ApiError(401, 'Invalid or expired review link. Please request a new one.');
+            throw new ApiError(401, 'Invalid or expired review link. Please request a new one.', error);
         }
+
         if (error instanceof ApiError) {
-            throw error;
+            throw error; // Let the error handler deal with it
         }
-        throw new ApiError(500, 'Error submitting review. Please try again.');
+
+        throw new ApiError(500, 'Error submitting review. Please try again.', error);
     }
 });
 

@@ -107,6 +107,12 @@ const ReviewForm: React.FC = () => {
                 setSubmitProgress((prev) => Math.min(prev + 10, 90));
             }, 500);
 
+            // Log request data for debugging
+            console.log('Submitting review:', {
+                ...reviewData,
+                token,
+            });
+
             await api.post('/api/reviews/internal', {
                 ...reviewData,
                 token,
